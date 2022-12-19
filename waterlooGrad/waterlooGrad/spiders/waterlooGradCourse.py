@@ -1,62 +1,114 @@
 import scrapy
-from scrapy.linkextractors import LinkExtractor
-from scrapy.spiders import CrawlSpider, Rule
+# from scrapy.linkextractors import LinkExtractor
+# from scrapy.spiders import CrawlSpider, Rule
+from waterlooGrad.items import CourseObj
 
-class Course(scrapy.Item):
-    course_Title = scrapy.Field()
-    course_subject = scrapy.Field()
-    course_catalog = scrapy.Field()
-    unit_weight = scrapy.Field()
-    course_component = scrapy.Field()
-    grading_basis = scrapy.Field()
-    description = scrapy.Field()
-    course_ID = scrapy.Field()
+MActSc_catalog = [611, 612, 613, 614, 615, 621, 622, 623, 624, 625, 631, 632, 633, 634, 635]
+MQF_ActSc_catalog = [770, 771, 772, 974]
+MMath_ActSc_catalog = [845, 846, 895, 855, 962, 964, 970, 974]
 
+MQF_STAT_catalog = [850, 901, 902, 906, 974]
+MMath_STAT_catalog = [831, 840, 841, 906]
+AVIA_catalog = [601, 602]
+GEOG_catalog = [600, 620, 640, 660]
+ERS_catalog = [680, 681, 669]
+
+search_groups = {
+    'MActSc': {
+        'URL': "https://uwaterloo.ca/graduate-studies-academic-calendar/graduate-course/subject/ACTSC",
+        'Catalog' : MActSc_catalog,
+        'Degree' : "Master of Acturial Science"
+    } ,
+    'MQF_ActSc_catalog' : {
+        'URL': "https://uwaterloo.ca/graduate-studies-academic-calendar/graduate-course/subject/ACTSC",
+        'Catalog' : MQF_ActSc_catalog,
+        'Degree' : "Master of Quantative Finance"
+    },
+    'MMath_ActSc_catalog' : {
+        'URL': "https://uwaterloo.ca/graduate-studies-academic-calendar/graduate-course/subject/ACTSC",
+        'Catalog' : MMath_ActSc_catalog,
+        'Degree' : "Master of Mathematics in Acturial Science"
+    },
+    'MQF_STAT': {
+        'URL': "https://uwaterloo.ca/graduate-studies-academic-calendar/graduate-course/subject/STAT",
+        'Catalog' : MQF_STAT_catalog,
+        'Degree' : "Master of Quantative Finance"
+    } ,
+    'MMath_STAT': {
+        'URL': "https://uwaterloo.ca/graduate-studies-academic-calendar/graduate-course/subject/STAT",
+        'Catalog' : MMath_STAT_catalog,
+        'Degree' : "Master of Mathematics in Acturial Science"
+    } ,
+    'AVIA': {
+        'URL': "https://uwaterloo.ca/graduate-studies-academic-calendar/graduate-course/subject/AVIA",
+        'Catalog' : AVIA_catalog,
+        'Degree' : "Master of Environmental Studies in Georgraphy - Aeronnautics"
+    } ,
+    'GEOG': {
+        'URL': "https://uwaterloo.ca/graduate-studies-academic-calendar/graduate-course/subject/GEOG",
+        'Catalog' : GEOG_catalog,
+        'Degree' : "Master of Environmental Studies in Georgraphy - Aeronnautics"
+    } ,
+    'ERS': {
+        'URL': 'https://uwaterloo.ca/graduate-studies-academic-calendar/graduate-course/subject/ERS',
+        'Catalog' : ERS_catalog,
+        'Degree' : "Master of Environmental Studies in Social And Ecological Sustainability"
+        }
+
+}
 
 class WaterloogradcourseSpider(scrapy.Spider):
     name = 'waterlooGradCourse'
     allowed_domains = ['uwaterloo.ca']
-    start_urls = ["https://uwaterloo.ca/graduate-studies-academic-calendar/graduate-course/subject/ACTSC"]
+    # start_urls = search_groups
 
     # rules = [Rule(LinkExtractor(allow = r'https://uwaterloo.ca/graduate-studies-academic-calendar/node/(\d+)'),\
     #     callback = "parse", follow=True)]
     
-    custom_settings = {
-        'waterlooGradCcourse.json' : {
-            'format' : 'json',
-            'overwrite' : True,
-            'encoding' : 'utf8'       
-        }
-        
-        }
+    def start_requests(self):
+        start_urls = search_groups
+
+        for key in start_urls:
+            group_info = start_urls[key]
+            URL = group_info["URL"]
+            Catalog= group_info["Catalog"]
+            Degree = group_info['Degree']
+
+            # print(group_info)
+            request = scrapy.Request(url = URL, callback = self.parse,\
+                cb_kwargs={'allowedCatalog':Catalog, 'Degree' : Degree})
+            yield request
 
 
-    def parse(self, response):
-        # return {'LinkAnchor' : response.xpath('//div[@class="field-content"]//h2/a')}      
+    def parse(self, response, allowedCatalog, Degree):
         for linkAnchor in response.xpath('//div[@class="field-content"]//h2/a'):
             course_link = linkAnchor.attrib['href']
-            course_page = scrapy.follow(course_link, \
-                callback = self.CourseDetails, meta = {'Course' : Course})
-            yield course_page
-
+            # yield {'LinkAnchor' : course_link, 'type' : type(course_link)}      
+            course_page = response.follow(course_link, callback = self.CourseDetails, \
+                    cb_kwargs = {'allowedCatalog' : allowedCatalog, 'Degree' : Degree})
+            
+            yield course_page #, callback = self.CourseDetails
+            
 
      # Parse the detailed info of a selected course       
-    def CourseDetails(Course, response):
-        course_Title = response.xpath('//div[@class="uw-site--title"]/h1/text()').get()
-        course_subject = response.xpath('//div[contains(@class, "field-name-field-course-subject")]//div[@class="field-item even"]/text()').get()
-        course_catalog = response.xpath('//div[contains(@class, "field-name-field-course-catalog-number")]//div[@class="field-item even"]/text()').get()
-        unit_weight = response.xpath('//div[contains(@class, "field-name-field-course-units")]//div[@class="field-item even"]/text()').get()
-        course_component = response.xpath('//div[contains(@class, "field-name-field-course-component")]//div[@class="field-item even"]/text()').get()
-        grading_basis = response.xpath('//div[contains(@class, "field-name-field-course-grading-basis")]//div[@class="field-item even"]/text()').get()
-        description = response.xpath('//div[contains(@class, "field-name-field-course-description")]//div[@class="field-item even"]/text()').get()
-        course_ID = response.xpath('//div[contains(@class, "field-name-field-course-id")]//div[@class="field-item even"]/text()').get()
+    def CourseDetails(self, response, allowedCatalog, Degree):
+        testCatalog = response.xpath('//div[contains(@class, "field-name-field-course-catalog-number")]//div[@class="field-item even"]/text()').get()
+        if int(testCatalog) in allowedCatalog:
+            Course = CourseObj()
+            Course['course_Title'] = response.xpath('//div[@class="uw-site--title"]/h1/text()').get()
+            Course['course_subject'] = response.xpath('//div[contains(@class, "field-name-field-course-subject")]//div[@class="field-item even"]/text()').get()
+            Course['course_catalog'] = response.xpath('//div[contains(@class, "field-name-field-course-catalog-number")]//div[@class="field-item even"]/text()').get()
+            Course['unit_weight'] = response.xpath('//div[contains(@class, "field-name-field-course-units")]//div[@class="field-item even"]/text()').get()
+            Course['course_component'] = response.xpath('//div[contains(@class, "field-name-field-course-component")]//div[@class="field-item even"]/text()').get()
+            Course['grading_basis'] = response.xpath('//div[contains(@class, "field-name-field-course-grading-basis")]//div[@class="field-item even"]/text()').get()
+            Course['description'] = response.xpath('//div[contains(@class, "field-name-field-course-description")]//div[@class="field-item even"]/text()').get()
+            Course['course_ID'] = response.xpath('//div[contains(@class, "field-name-field-course-id")]//div[@class="field-item even"]/text()').get()
+            Course['course_url'] = response.url
+            Course['degree'] = Degree
+            yield Course
 
-        yield {
-            'ID' : course_ID,
-            'course_Title': course_Title, 'course_subject' : course_subject,
-            'course_catalog' : course_catalog, 'unit_weight' : unit_weight,
-            'course_component' : course_component, 'grading_basis' :  grading_basis,
-            'description' : description
-        }
+        # yield {'testCata' : int(testCatalog)}
+
+        # yield {"Title" :  response.xpath('//div[@class="uw-site--title"]/h1/text()').get()}
             
 # scrapy crawl waterlooGradCourse

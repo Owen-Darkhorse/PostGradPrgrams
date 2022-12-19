@@ -12,6 +12,14 @@ BOT_NAME = 'waterlooGrad'
 SPIDER_MODULES = ['waterlooGrad.spiders']
 NEWSPIDER_MODULE = 'waterlooGrad.spiders'
 
+FEEDS = {
+        'waterlooGradCcourse.csv' : {
+            'format' : 'csv',
+            'overwrite' : True,
+            'encoding' : 'utf8'       
+        }
+        
+}
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
 #USER_AGENT = 'waterlooGrad (+http://www.yourdomain.com)'
